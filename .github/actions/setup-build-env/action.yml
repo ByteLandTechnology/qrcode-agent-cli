@@ -1,0 +1,26 @@
+name: setup-build-env
+description: Set up Node.js, Rust toolchain, and install release automation dependencies
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ inputs.rust-targets }}
+
+    - name: Install release automation dependencies
+      shell: bash
+      run: npm ci --omit=optional
+
+inputs:
+  rust-targets:
+    description: Additional Rust compilation targets
+    required: false
+    default: ""

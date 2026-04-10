@@ -1,0 +1,41 @@
+{
+  "branches": ["main"],
+  "tagFormat": "v${version}",
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits"
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits"
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "verifyConditionsCmd": "npm run release:verify-config",
+        "verifyReleaseCmd": "npm run release:quality-gates",
+        "prepareCmd": "node scripts/release/publish-skill-to-target-repo.mjs ${nextRelease.version} ${nextRelease.gitTag} ${nextRelease.gitHead}"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": ".work/release/github-release/*",
+            "label": "release assets"
+          },
+          {
+            "path": ".release-manifest.json",
+            "label": "release manifest"
+          }
+        ]
+      }
+    ]
+  ]
+}

@@ -1,0 +1,23 @@
+[package]
+name = "qrcode-agent-cli"
+version = "0.1.0"
+edition = "2024"
+description = "Generate QR codes as terminal text or PNG images"
+license = "MIT"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+dirs = "6.0"
+image = { version = "0.25", default-features = false, features = ["png"] }
+qrcode = "0.14"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.15"
+

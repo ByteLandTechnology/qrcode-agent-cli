@@ -1,0 +1,65 @@
+{
+  "sourceSkillId": "qrcode-agent-cli",
+  "sourceRepository": "byteland-app/qrcode-agent-cli",
+  "sourceRepositoryEnv": "GITHUB_REPOSITORY",
+  "metadataFilename": ".release-manifest.json",
+  "githubRelease": {
+    "ownerRepository": "byteland-app/qrcode-agent-cli",
+    "ownerRepositoryEnv": "GITHUB_REPOSITORY",
+    "releaseEvidenceFilename": "release-evidence.json",
+    "releaseAssetsDir": ".work/release/github-release",
+    "installScriptPath": "scripts/install-current-release.sh",
+    "installCommandExample": "./scripts/install-current-release.sh <version>",
+    "assetGlobPatterns": [
+      ".work/release/github-release/*",
+      ".release-manifest.json"
+    ]
+  },
+  "optionalSecondaryPublication": {
+    "enabled": false
+  },
+  "generatedSkill": {
+    "skillName": "qrcode-agent-cli",
+    "description": "Generate QR codes as terminal text or PNG images",
+    "author": "ByteLandTechnology",
+    "version": "0.1.0",
+    "rustEdition": "2024",
+    "projectPath": "."
+  },
+  "artifactBuild": {
+    "artifactsDir": ".work/release/artifacts",
+    "binaryName": "qrcode-agent-cli",
+    "releaseMetadataFilename": "release.json"
+  },
+  "artifactTargets": [
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "required": true,
+      "runner": "ubuntu-latest",
+      "archiveFormat": "tar.gz"
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "required": true,
+      "runner": "macos-14",
+      "archiveFormat": "tar.gz"
+    }
+  ],
+  "generatedPackageBoundary": {
+    "packageLocalSupportExamples": [
+      "release manifests",
+      "checksum files",
+      "repo-native install helper",
+      "GitHub Release evidence"
+    ],
+    "repositoryOwnedAutomation": [
+      ".github/workflows/release.yml",
+      "release/skill-release.config.json",
+      "scripts/release",
+      "scripts/install-current-release.sh",
+      "templates/release-support.md",
+      ".releaserc.json",
+      "package.json"
+    ]
+  }
+}
