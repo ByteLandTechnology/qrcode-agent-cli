@@ -189,7 +189,7 @@ function npmPublish(pkgDir) {
   }
 
   console.log(`Publishing ${name}@${ver}...`);
-  run("npm", ["publish", "--access", "public", "--no-git-checks"], {
+  run("npm", ["publish", "--access", "public", "--provenance", "--no-git-checks"], {
     cwd: pkgDir,
     stdio: "pipe",
   });
