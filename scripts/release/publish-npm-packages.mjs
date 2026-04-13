@@ -80,6 +80,10 @@ function buildPlatformPackage(platform) {
     os: [osField],
     cpu: [cpuField],
     license: "MIT",
+    repository: {
+      type: "git",
+      url: "git+https://github.com/ByteLandTechnology/qrcode-agent-cli.git",
+    },
   });
 
   return pkgName;
@@ -189,7 +193,7 @@ function npmPublish(pkgDir) {
   }
 
   console.log(`Publishing ${name}@${ver}...`);
-  run("npm", ["publish", "--access", "public", "--provenance", "--no-git-checks"], {
+  run("npm", ["publish", "--access", "public", "--provenance"], {
     cwd: pkgDir,
     stdio: "pipe",
   });
