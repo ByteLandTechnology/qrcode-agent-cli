@@ -1,10 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -34,16 +37,14 @@ export function ensureCleanDir(directoryPath) {
   ensureDir(directoryPath);
 }
 
-export function runCommand(command, args, options = {}) {
-  return execFileSync(command, args, {
-    cwd: options.cwd ?? rootDir,
-    env: {
-      ...process.env,
-      ...options.env,
-    },
-    stdio: options.stdio ?? "inherit",
-    encoding: options.encoding,
-  });
+export function assertDirectory(directoryPath, description) {
+  if (!existsSync(directoryPath)) {
+    throw new Error(`${description} does not exist: ${directoryPath}.`);
+  }
+
+  if (!statSync(directoryPath).isDirectory()) {
+    throw new Error(`${description} is not a directory: ${directoryPath}.`);
+  }
 }
 
 export function loadReleaseConfig() {
@@ -63,9 +64,60 @@ export function readJson(filePath, fallbackValue = null) {
   return JSON.parse(readFileSync(filePath, "utf8"));
 }
 
-export function ensureFile(filePath, description) {
-  if (!existsSync(filePath) || !statSync(filePath).isFile()) {
-    throw new Error(`${description} is missing: ${relativeToRoot(filePath)}.`);
+export function writeJson(filePath, value) {
+  ensureDir(path.dirname(filePath));
+  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+export function runCommand(command, args, options = {}) {
+  return execFileSync(command, args, {
+    cwd: options.cwd ?? rootDir,
+    env: {
+      ...process.env,
+      ...options.env,
+    },
+    stdio: options.stdio ?? "inherit",
+    encoding: options.encoding,
+  });
+}
+
+export function shouldUseCargoZigbuild(target) {
+  return (
+    process.platform === "darwin" &&
+    /-(unknown-linux-gnu|unknown-linux-musl)$/.test(target)
+  );
+}
+
+export function buildRustBinaryForTarget(target, options = {}) {
+  const command = "cargo";
+  const args = shouldUseCargoZigbuild(target)
+    ? ["zigbuild", "--release", "--target", target]
+    : ["build", "--release", "--target", target];
+
+  return runCommand(command, args, {
+    cwd: options.cwd,
+    env: options.env,
+    stdio: options.stdio,
+    encoding: options.encoding,
+  });
+}
+
+export function computeSha256(filePath) {
+  return createHash("sha256").update(readFileSync(filePath)).digest("hex");
+}
+
+export function copyDirectoryContents(sourceDir, destinationDir, options = {}) {
+  ensureDir(destinationDir);
+
+  for (const entry of readdirSync(sourceDir)) {
+    if (options.exclude?.includes(entry)) {
+      continue;
+    }
+
+    cpSync(path.join(sourceDir, entry), path.join(destinationDir, entry), {
+      recursive: true,
+      force: true,
+    });
   }
 }
 
@@ -74,43 +126,12 @@ export function copyFile(sourcePath, destinationPath) {
   copyFileSync(sourcePath, destinationPath);
 }
 
-export function writeJson(filePath, value) {
-  ensureDir(path.dirname(filePath));
-  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
-export function computeSha256(filePath) {
-  return createHash("sha256").update(readFileSync(filePath)).digest("hex");
-}
-
 export function isPlaceholderValue(value) {
   return typeof value === "string" && value.includes("REPLACE_WITH_");
 }
 
 export function isPlaceholderRepository(value) {
   return !value || value.includes("REPLACE_WITH_OWNER/REPO");
-}
-
-export function requiredArtifactTargets(config) {
-  return config.artifactTargets.filter((entry) => entry.required !== false);
-}
-
-export function getArtifactTarget(config, target) {
-  const match = config.artifactTargets.find((entry) => entry.target === target);
-  if (!match) {
-    throw new Error(`Unknown artifact target: ${target}.`);
-  }
-  return match;
-}
-
-export function archiveFilenameForTarget(config, version, target) {
-  const artifactTarget = getArtifactTarget(config, target);
-  const archiveFormat = artifactTarget.archiveFormat || "tar.gz";
-  return `${config.sourceSkillId}-${version}-${target}.${archiveFormat}`;
-}
-
-export function checksumFilenameForArchive(archiveFilename) {
-  return `${archiveFilename}.sha256`;
 }
 
 export function releaseArtifactsDir(config) {
@@ -138,11 +159,40 @@ export function buildBinaryFromProjectPath(config, target) {
   const extension = target.includes("windows") ? ".exe" : "";
   return path.join(
     rootDir,
+    config.generatedSkill.projectPath,
     "target",
     target,
     "release",
     `${config.artifactBuild.binaryName}${extension}`,
   );
+}
+
+export function getArtifactTarget(config, target) {
+  const match = config.artifactTargets.find((entry) => entry.target === target);
+
+  if (!match) {
+    throw new Error(`Unknown artifact target: ${target}.`);
+  }
+
+  return match;
+}
+
+export function requiredArtifactTargets(config) {
+  return config.artifactTargets.filter((entry) => entry.required);
+}
+
+export function configuredArtifactTargets(config) {
+  return config.artifactTargets.map((entry) => entry.target);
+}
+
+export function archiveFilenameForTarget(config, version, target) {
+  const targetConfig = getArtifactTarget(config, target);
+  const archiveFormat = targetConfig.archiveFormat || "tar.gz";
+  return `${config.sourceSkillId}-${version}-${target}.${archiveFormat}`;
+}
+
+export function checksumFilenameForArchive(archiveFilename) {
+  return `${archiveFilename}.sha256`;
 }
 
 export function releaseAssetsDir(config) {
@@ -173,8 +223,8 @@ export function resolveOwnerRepository(config) {
   if (isPlaceholderRepository(resolved)) {
     throw new Error(
       [
-        "Release repository identity is unresolved.",
-        "Set GITHUB_REPOSITORY or replace REPLACE_WITH_OWNER/REPO in release/skill-release.config.json.",
+        "Missing source repository identity.",
+        `Set ${config.githubRelease.ownerRepositoryEnv} or update release/skill-release.config.json.`,
       ].join(" "),
     );
   }
@@ -198,10 +248,104 @@ export function sourceReleaseUrl(ownerRepository, gitTag) {
   return `https://github.com/${ownerRepository}/releases/tag/${gitTag}`;
 }
 
-export function detectGitHead() {
-  return runCommand("git", ["rev-parse", "HEAD"], {
-    cwd: rootDir,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+export function detectPublicationMode(config) {
+  if (process.env.SKILL_RELEASE_PUBLICATION_MODE) {
+    return process.env.SKILL_RELEASE_PUBLICATION_MODE;
+  }
+
+  if (process.env.GITHUB_ACTIONS === "true") {
+    return "live_release";
+  }
+
+  return "dry_run";
+}
+
+function skillNameToSnake(skillName) {
+  return skillName.replace(/-/g, "_");
+}
+
+function skillNameToPascal(skillName) {
+  return skillName
+    .split("-")
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join("");
+}
+
+function templateTokens(config) {
+  const { author, description, rustEdition, skillName, version } =
+    config.generatedSkill;
+
+  return {
+    AUTHOR: author ?? "",
+    CURRENT_DATE: new Date().toISOString().slice(0, 10),
+    DESCRIPTION: description,
+    RUST_EDITION: rustEdition,
+    SKILL_NAME: skillName,
+    SKILL_NAME_PASCAL: skillNameToPascal(skillName),
+    SKILL_NAME_SNAKE: skillNameToSnake(skillName),
+    SKILL_NAME_UPPER: skillName.toUpperCase(),
+    VERSION: version,
+  };
+}
+
+function renderTemplate(templatePath, tokens) {
+  let content = readFileSync(templatePath, "utf8");
+
+  for (const [tokenName, tokenValue] of Object.entries(tokens)) {
+    content = content.replaceAll(`{{${tokenName}}}`, tokenValue);
+  }
+
+  if (content.includes("{{") || content.includes("}}")) {
+    throw new Error(
+      `Unexpanded template token detected in ${relativeToRoot(templatePath)}.`,
+    );
+  }
+
+  return content;
+}
+
+export function prepareGeneratedSkillProject(config) {
+  const projectDir = path.resolve(rootDir, config.generatedSkill.projectPath);
+
+  if (
+    !config.generatedSkill.templates ||
+    Object.keys(config.generatedSkill.templates).length === 0
+  ) {
+    return projectDir;
+  }
+
+  const tokens = templateTokens(config);
+
+  ensureCleanDir(projectDir);
+  ensureDir(path.join(projectDir, "src"));
+  ensureDir(path.join(projectDir, "tests"));
+
+  for (const [templateRelativePath, outputRelativePath] of Object.entries(
+    config.generatedSkill.templates,
+  )) {
+    const templatePath = path.join(rootDir, templateRelativePath);
+    if (!existsSync(templatePath)) {
+      throw new Error(`Missing release template: ${templateRelativePath}.`);
+    }
+
+    let rendered = renderTemplate(templatePath, tokens);
+
+    if (!tokens.AUTHOR && outputRelativePath === "Cargo.toml") {
+      rendered = rendered.replace(/^authors = \[""\]\n/m, "");
+    }
+
+    if (!tokens.AUTHOR && outputRelativePath === "README.md") {
+      rendered = rendered.replace(/\n## Author\n\n[\s\S]*?\n---\n/m, "\n---\n");
+    }
+
+    const outputPath = path.join(projectDir, outputRelativePath);
+    ensureDir(path.dirname(outputPath));
+    writeFileSync(outputPath, rendered, "utf8");
+
+    if (outputRelativePath.endsWith(".sh")) {
+      chmodSync(outputPath, 0o755);
+    }
+  }
+
+  return projectDir;
 }

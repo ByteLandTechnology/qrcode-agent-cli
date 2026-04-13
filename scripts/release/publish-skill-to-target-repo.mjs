@@ -4,8 +4,9 @@ import {
   archiveFilenameForTarget,
   checksumFilenameForArchive,
   computeSha256,
-  detectGitHead,
+  detectPublicationMode,
   ensureCleanDir,
+  ensureDir,
   getArtifactTarget,
   installScriptRelativePath,
   loadReleaseConfig,
@@ -24,18 +25,18 @@ import {
   writeJson,
 } from "./release-helpers.mjs";
 
-const [version, gitTag, gitHeadArg] = process.argv.slice(2);
+const [version, gitTag, gitHead] = process.argv.slice(2);
 
-if (!version || !gitTag) {
+if (!version || !gitTag || !gitHead) {
   throw new Error(
-    "Usage: node scripts/release/publish-skill-to-target-repo.mjs <version> <gitTag> [gitHead]",
+    "Usage: node scripts/release/publish-skill-to-target-repo.mjs <version> <gitTag> <gitHead>",
   );
 }
 
 const config = loadReleaseConfig();
+const publicationMode = detectPublicationMode(config);
 const ownerRepository = resolveOwnerRepository(config);
 const sourceRepository = resolveSourceRepository(config);
-const gitHead = gitHeadArg || detectGitHead();
 const publishedAt = new Date().toISOString();
 const githubReleaseUrl = sourceReleaseUrl(ownerRepository, gitTag);
 const assetsDir = releaseAssetsDir(config);
@@ -65,23 +66,27 @@ function packageArtifactForTarget(target) {
     throw new Error(`Prepared binary for ${target} is missing: ${binaryPath}.`);
   }
 
+  if (
+    publicationMode === "live_release" &&
+    buildMetadata.artifactOrigin === "synthetic_rehearsal"
+  ) {
+    throw new Error(
+      `Live publication cannot use synthetic rehearsal artifacts for ${target}.`,
+    );
+  }
+
   const archiveFilename = archiveFilenameForTarget(config, version, target);
   const archivePath = path.join(assetsDir, archiveFilename);
   const checksumFilename = checksumFilenameForArchive(archiveFilename);
   const checksumPath = path.join(assetsDir, checksumFilename);
-  const archiveFormat = targetConfig.archiveFormat || "tar.gz";
 
-  if (archiveFormat === "zip") {
-    runCommand("zip", ["-j", archivePath, binaryPath]);
-  } else {
-    runCommand("tar", [
-      "-czf",
-      archivePath,
-      "-C",
-      path.dirname(binaryPath),
-      path.basename(binaryPath),
-    ]);
-  }
+  runCommand("tar", [
+    "-czf",
+    archivePath,
+    "-C",
+    path.dirname(binaryPath),
+    path.basename(binaryPath),
+  ]);
 
   const sha256 = computeSha256(archivePath);
   writeFileSync(checksumPath, `${sha256}  ${archiveFilename}\n`, "utf8");
@@ -118,8 +123,13 @@ const releaseEvidence = {
     releaseUrl: githubReleaseUrl,
   },
   metadataVersion: 1,
-  publicationMode:
-    process.env.GITHUB_ACTIONS === "true" ? "live_release" : "dry_run",
+  optionalSecondaryPublication: {
+    enabled: Boolean(config.optionalSecondaryPublication?.enabled),
+    status: config.optionalSecondaryPublication?.enabled
+      ? "configured_optional_followup"
+      : "not_requested",
+  },
+  publicationMode,
   publishedAt,
   sourceCommitSha: gitHead,
   sourceGitTag: gitTag,
@@ -133,7 +143,7 @@ writeJson(releaseEvidencePath(config), releaseEvidence);
 const manifest = {
   artifactResults,
   githubReleaseAssets: config.githubRelease.assetGlobPatterns,
-  publicationMode: releaseEvidence.publicationMode,
+  publicationMode,
   publishedAt,
   releaseEvidencePath: relativeToRoot(releaseEvidencePath(config)),
   releaseUrl: githubReleaseUrl,
@@ -151,19 +161,16 @@ const receipt = {
   blockingReason: null,
   githubReleaseUrl,
   installScriptPath: installScriptRelativePath(config),
-  optionalSecondaryPublicationEnabled: false,
-  publicationMode: releaseEvidence.publicationMode,
+  optionalSecondaryPublicationEnabled: Boolean(
+    config.optionalSecondaryPublication?.enabled,
+  ),
+  publicationMode,
   publicationResult:
-    releaseEvidence.publicationMode === "live_release"
-      ? "published"
-      : "prepared",
+    publicationMode === "live_release" ? "published" : "prepared",
   publishRoot: relativeToRoot(assetsDir),
   publishedAt,
   releaseEvidencePath: relativeToRoot(releaseEvidencePath(config)),
-  runResult:
-    releaseEvidence.publicationMode === "live_release"
-      ? "published"
-      : "prepared",
+  runResult: publicationMode === "live_release" ? "published" : "prepared",
   sourceCommitSha: gitHead,
   sourceGitTag: gitTag,
   sourceRepository,

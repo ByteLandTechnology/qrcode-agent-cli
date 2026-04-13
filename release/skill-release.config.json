@@ -1,15 +1,15 @@
 {
   "sourceSkillId": "qrcode-agent-cli",
-  "sourceRepository": "byteland-app/qrcode-agent-cli",
+  "sourceRepository": "ByteLandTechnology/qrcode-agent-cli",
   "sourceRepositoryEnv": "GITHUB_REPOSITORY",
   "metadataFilename": ".release-manifest.json",
   "githubRelease": {
-    "ownerRepository": "byteland-app/qrcode-agent-cli",
+    "ownerRepository": "ByteLandTechnology/qrcode-agent-cli",
     "ownerRepositoryEnv": "GITHUB_REPOSITORY",
     "releaseEvidenceFilename": "release-evidence.json",
     "releaseAssetsDir": ".work/release/github-release",
     "installScriptPath": "scripts/install-current-release.sh",
-    "installCommandExample": "./scripts/install-current-release.sh <version>",
+    "installCommandExample": "./scripts/install-current-release.sh",
     "assetGlobPatterns": [
       ".work/release/github-release/*",
       ".release-manifest.json"
@@ -29,7 +29,8 @@
   "artifactBuild": {
     "artifactsDir": ".work/release/artifacts",
     "binaryName": "qrcode-agent-cli",
-    "releaseMetadataFilename": "release.json"
+    "releaseMetadataFilename": "release.json",
+    "syntheticRehearsalNotice": "Rehearsal archives may contain synthetic executable stubs when CI-built binaries are unavailable locally."
   },
   "artifactTargets": [
     {
@@ -53,13 +54,14 @@
       "GitHub Release evidence"
     ],
     "repositoryOwnedAutomation": [
+      ".github/actions/setup-build-env/action.yml",
       ".github/workflows/release.yml",
       "release/skill-release.config.json",
       "scripts/release",
       "scripts/install-current-release.sh",
-      "templates/release-support.md",
       ".releaserc.json",
-      "package.json"
+      "package.json",
+      "package-lock.json"
     ]
   }
 }

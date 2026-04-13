@@ -1,11 +1,14 @@
 import { chmodSync, writeFileSync } from "node:fs";
 import {
+  buildRustBinaryForTarget,
   buildBinaryFromProjectPath,
   getArtifactTarget,
   loadReleaseConfig,
-  releaseBuildBinaryPath,
+  prepareGeneratedSkillProject,
   relativeToRoot,
+  releaseBuildBinaryPath,
   runCommand,
+  shouldUseCargoZigbuild,
   targetArtifactsDir,
   writeJson,
 } from "./release-helpers.mjs";
@@ -21,6 +24,7 @@ if (!target) {
 
 const config = loadReleaseConfig();
 const targetConfig = getArtifactTarget(config, target);
+const projectDir = prepareGeneratedSkillProject(config);
 const outputDir = targetArtifactsDir(config, target);
 const binaryPath = releaseBuildBinaryPath(config, target);
 
@@ -37,16 +41,21 @@ if (synthetic) {
   writeFileSync(binaryPath, stubContents, "utf8");
   chmodSync(binaryPath, 0o755);
 } else {
-  runCommand("cargo", ["build", "--release", "--target", target]);
+  buildRustBinaryForTarget(target, { cwd: projectDir });
   runCommand("cp", [buildBinaryFromProjectPath(config, target), binaryPath]);
 }
 
 const metadata = {
   archiveBasenamePrefix: `${config.sourceSkillId}-<version>-${target}`,
-  artifactOrigin: synthetic ? "synthetic_rehearsal" : "cargo_build",
+  artifactOrigin: synthetic
+    ? "synthetic_rehearsal"
+    : shouldUseCargoZigbuild(target)
+      ? "cargo_zigbuild"
+      : "cargo_build",
   binaryName: config.artifactBuild.binaryName,
   binaryPath: relativeToRoot(binaryPath),
   builtAt: new Date().toISOString(),
+  generatedSkillProjectPath: relativeToRoot(projectDir),
   releaseSurface: "github_release_asset",
   required: targetConfig.required !== false,
   runner: targetConfig.runner,

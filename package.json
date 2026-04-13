@@ -1,26 +1,21 @@
 {
   "name": "qrcode-agent-cli-release-automation",
+  "version": "0.0.0-development",
   "private": true,
-  "type": "module",
   "description": "Repository-native GitHub Release automation for qrcode-agent-cli",
+  "license": "UNLICENSED",
   "engines": {
-    "node": ">=20"
+    "node": "22.x",
+    "npm": "10.x"
   },
+  "packageManager": "npm@10.x",
   "scripts": {
-    "release:verify-config": "node scripts/release/verify-release-config.mjs",
     "release:quality-gates": "node scripts/release/run-quality-gates.mjs",
     "release:build-artifact": "node scripts/release/build-cli-artifact.mjs",
-    "release:publish-assets": "node scripts/release/publish-skill-to-target-repo.mjs",
+    "release:build-all": "node scripts/release/build-release-artifacts.mjs",
+    "release:verify-config": "node scripts/release/verify-release-config.mjs",
     "release:ci": "node scripts/release/run-semantic-release.mjs",
     "release:dry-run": "node scripts/release/run-semantic-release.mjs --dry-run --no-ci",
     "release:install-current": "./scripts/install-current-release.sh"
-  },
-  "devDependencies": {
-    "@semantic-release/commit-analyzer": "^13.0.0",
-    "@semantic-release/exec": "^6.0.0",
-    "@semantic-release/github": "^11.0.0",
-    "@semantic-release/release-notes-generator": "^14.0.0",
-    "conventional-changelog-conventionalcommits": "^7.0.0",
-    "semantic-release": "^24.0.0"
   }
 }

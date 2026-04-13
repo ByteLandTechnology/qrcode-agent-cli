@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONFIG_PATH="${REPO_ROOT}/release/skill-release.config.json"
 
 if [[ ! -f "${CONFIG_PATH}" ]]; then
-  echo "Missing ${CONFIG_PATH}. Configure repo-native release automation first." >&2
+  echo "Missing ${CONFIG_PATH}. The release asset pack must be configured before install." >&2
   exit 1
 fi
 
@@ -35,11 +35,9 @@ VERSION="${1:-}"
 INSTALL_DIR="${INSTALL_DIR:-${REPO_ROOT}/.local/bin}"
 PLATFORM="$(uname -s)"
 ARCH="$(uname -m)"
-BINARY_FILENAME="${SKILL_NAME}"
-ARCHIVE_EXTENSION="tar.gz"
 
 if [[ -z "${SKILL_NAME}" || -z "${OWNER_REPOSITORY}" || "${OWNER_REPOSITORY}" == *"REPLACE_WITH_OWNER/REPO"* ]]; then
-  echo "release/skill-release.config.json must define githubRelease.ownerRepository before install." >&2
+  echo "release/skill-release.config.json must define the repository owner/name and skill id before install." >&2
   exit 1
 fi
 
@@ -61,12 +59,12 @@ case "${PLATFORM}:${ARCH}" in
     TARGET="aarch64-apple-darwin"
     ;;
   *)
-    echo "Unsupported platform ${PLATFORM}:${ARCH}. This repo currently publishes Linux x64 and macOS arm64 assets." >&2
+    echo "Unsupported platform ${PLATFORM}:${ARCH}. See the repo release notes for supported targets." >&2
     exit 1
     ;;
 esac
 
-ARCHIVE_NAME="${SKILL_NAME}-${VERSION}-${TARGET}.${ARCHIVE_EXTENSION}"
+ARCHIVE_NAME="${SKILL_NAME}-${VERSION}-${TARGET}.tar.gz"
 RELEASE_URL="https://github.com/${OWNER_REPOSITORY}/releases/tag/v${VERSION}"
 DOWNLOAD_URL="${RELEASE_URL}/download/${ARCHIVE_NAME}"
 TMP_DIR="$(mktemp -d)"
@@ -82,7 +80,7 @@ mkdir -p "${INSTALL_DIR}"
 echo "Downloading ${DOWNLOAD_URL}"
 curl --fail --location --silent --show-error "${DOWNLOAD_URL}" -o "${ARCHIVE_PATH}"
 tar -xzf "${ARCHIVE_PATH}" -C "${TMP_DIR}"
-install -m 0755 "${TMP_DIR}/${BINARY_FILENAME}" "${INSTALL_DIR}/${BINARY_FILENAME}"
+install -m 0755 "${TMP_DIR}/${SKILL_NAME}" "${INSTALL_DIR}/${SKILL_NAME}"
 
-echo "Installed ${SKILL_NAME} ${VERSION} to ${INSTALL_DIR}/${BINARY_FILENAME}"
-echo "Verify with: ${INSTALL_DIR}/${BINARY_FILENAME} --version"
+echo "Installed ${SKILL_NAME} ${VERSION} to ${INSTALL_DIR}/${SKILL_NAME}"
+echo "Verify with: ${INSTALL_DIR}/${SKILL_NAME} --version"
