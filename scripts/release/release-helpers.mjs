@@ -187,8 +187,7 @@ export function configuredArtifactTargets(config) {
 
 export function archiveFilenameForTarget(config, version, target) {
   const targetConfig = getArtifactTarget(config, target);
-  const archiveFormat = targetConfig.archiveFormat || "tar.gz";
-  return `${config.sourceSkillId}-${version}-${target}.${archiveFormat}`;
+  return `${config.sourceSkillId}-${version}-${target}.tar.gz`;
 }
 
 export function checksumFilenameForArchive(archiveFilename) {

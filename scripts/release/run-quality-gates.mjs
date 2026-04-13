@@ -47,7 +47,6 @@ if (!generatedReadme.includes(releaseEvidenceFilename(config))) {
   );
 }
 
-runCommand("cargo", ["fmt"], { cwd: projectDir });
 runCommand("cargo", ["fmt", "--check"], { cwd: projectDir });
 runCommand("cargo", ["clippy", "--", "-D", "warnings"], { cwd: projectDir });
 runCommand("cargo", ["test"], { cwd: projectDir });
