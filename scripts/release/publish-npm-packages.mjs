@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, writeFileSync, copyFileSync, chmodSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, copyFileSync, chmodSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -179,7 +179,7 @@ function versionExists(pkgName, ver) {
 
 function npmPublish(pkgDir) {
   const pkgJson = JSON.parse(
-    require("fs").readFileSync(path.join(pkgDir, "package.json"), "utf8"),
+    readFileSync(path.join(pkgDir, "package.json"), "utf8"),
   );
   const { name, version: ver } = pkgJson;
 
