@@ -1,7 +1,10 @@
 import { chmodSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import {
   buildRustBinaryForTarget,
   buildBinaryFromProjectPath,
+  copyFile,
+  ensureDir,
   getArtifactTarget,
   loadReleaseConfig,
   prepareGeneratedSkillProject,
@@ -28,8 +31,8 @@ const projectDir = prepareGeneratedSkillProject(config);
 const outputDir = targetArtifactsDir(config, target);
 const binaryPath = releaseBuildBinaryPath(config, target);
 
-runCommand("mkdir", ["-p", outputDir]);
-runCommand("mkdir", ["-p", `${outputDir}/binary`]);
+ensureDir(outputDir);
+ensureDir(path.join(outputDir, "binary"));
 
 if (synthetic) {
   const stubContents = [
@@ -42,7 +45,7 @@ if (synthetic) {
   chmodSync(binaryPath, 0o755);
 } else {
   buildRustBinaryForTarget(target, { cwd: projectDir });
-  runCommand("cp", [buildBinaryFromProjectPath(config, target), binaryPath]);
+  copyFile(buildBinaryFromProjectPath(config, target), binaryPath);
 }
 
 const metadata = {

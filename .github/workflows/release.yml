@@ -19,8 +19,16 @@ jobs:
         include:
           - target: aarch64-apple-darwin
             runner: macos-14
+          - target: x86_64-apple-darwin
+            runner: macos-14
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+          - target: aarch64-pc-windows-msvc
+            runner: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,6 +39,14 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           rust-targets: ${{ matrix.target }}
+
+      - name: Install Linux ARM64 cross-compilation linker
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          mkdir -p .cargo
+          printf '[target.aarch64-unknown-linux-gnu]\nlinker = "aarch64-linux-gnu-gcc"\n' > .cargo/config.toml
 
       - name: Verify release config
         run: npm run release:verify-config
@@ -49,6 +65,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-artifacts
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      published: ${{ steps.get-version.outputs.published }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,3 +91,50 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run release:ci
+
+      - name: Get release version
+        id: get-version
+        run: |
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$TAG" ]; then
+            VERSION="${TAG#v}"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "published=true" >> $GITHUB_OUTPUT
+          else
+            echo "version=" >> $GITHUB_OUTPUT
+            echo "published=false" >> $GITHUB_OUTPUT
+          fi
+
+  npm-publish:
+    name: publish to npm
+    runs-on: ubuntu-latest
+    needs:
+      - github-release
+    if: needs.github-release.outputs.published == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Update npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: .work/release/artifacts
+          pattern: release-artifacts-*
+          merge-multiple: true
+
+      - name: Assemble and publish npm packages
+        env:
+          VERSION: ${{ needs.github-release.outputs.version }}
+        run: node scripts/release/publish-npm-packages.mjs
